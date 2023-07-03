@@ -6,12 +6,13 @@
 ## 文档目录
 - [关于环境配置](#关于环境配置)
 - [API](documents/zh/API.md)
-- 0 预备知识
-    - [0.1 通过ctype将C/C++代码动态库与python连接](documents/zh/0_StructureOfProj.md)
-    - 
+- [0 项目基本结构和预备知识](documents/zh/0_StructureOfProj.md)
+- [1 Tensor基本数据结构](documents/zh/1_BaseOfTensor.md)
 
 ## 关于环境配置
 
-对C/C++代码，遵循C++ 17规范，代码风格尽量遵循Google开源代码风格指南，使用gcc(g++)11编译器。
+对C/C++代码，遵循C++ 17规范，使用gcc(g++)11编译器。
 
 对python代码，使用python 3.9解释器，尽量不依赖第三方库。
+
+部分算法参照Pytorch 2.0.1实现。
