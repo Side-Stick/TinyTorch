@@ -1,6 +1,5 @@
 .DS_Store
-CppSrc/cmake-build-debug
-CppSrc/cmake-build-release
+*cmake-build*
 CppSrc/bin
 *.idea
 */__pycache__/*
