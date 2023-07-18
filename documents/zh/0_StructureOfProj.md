@@ -31,3 +31,5 @@ TinyTorch
 使用python标准库ctypes中的CDLL对象实现C++动态库的加载。这种方法的好处是并不局限于CPython，对不同版本python编译器的兼容性更好。
 
 使用config.py文件配置C++动态库的路径配置，在macOS平台上拓展名为dylib（在Windows平台上为dll，在Linux平台上为so）；加载后，可直接使用C++动态库中的函数名调用CDLL对象的属性，注意可能需要提前指定动态库函数的返回类型（restype）。此外，在C++项目中，必须使用`extern "C"`来修饰头文件中函数声明。
+
+ctypes的使用示例详见HelloWorld（python代码的[hello_world类](../../tinytorch/hello_world.py)和C++代码的[HelloWorld.hpp](../../CppSrc/CppLibraries/utils/HelloWorld.hpp)及[HelloWorld.cpp](../../CppSrc/CppLibraries/utils/HelloWorld.cpp)）

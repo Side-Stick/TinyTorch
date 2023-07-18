@@ -3,3 +3,4 @@
 CppSrc/bin
 *.idea
 */__pycache__/*
+*.pptx
