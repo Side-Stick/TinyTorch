@@ -25,10 +25,36 @@ PyTorch版本更新比较快，这里针对[PyTorch 2.0.1 Release](https://githu
 
 ![PyTorch中Tensor的数据结构](../pictures/1.1-PytorchTensorUML.jpg)
 
-PyTorch 2.0.1中，Tensor在C++代码结构中主要分为4层，顶层为TensorBase，包含自动微分等接口；实现（implement）层为TensorImpl，储存了如size、dtype等元数据；第三层为Storage和StorageImpl，前者为后者的接口类，主要负责管理底层数据的空间分配等；最底层为一些数据分配和指针类，用于在不同的软硬件平台上实现高效的内存管理。但是在issue([https://github.com/pytorch/pytorch/issues/14797](https://github.com/pytorch/pytorch/issues/14797))和StorageImpl.h的代码注释中，pytorch团队提到因为接口过于老旧等原因，希望废弃Storage类，但因为工程量较大，一直未能实现（该issue为2018年提出，但截至2023年仍为实现）。
+PyTorch 2.0.1中，Tensor相关主要class/struct结构如上图所示。Tensor在C++代码结构中主要分为4层，顶层为TensorBase，包含自动微分等函数接口；实现（implement）层为TensorImpl，储存了如size、dtype等元数据；第三层为Storage和StorageImpl，前者为后者的接口类，主要负责管理底层数据的空间分配等；最底层为一些数据分配和指针类，用于在不同的软硬件平台上实现高效的内存管理。其中，TensorImpl和StorageImpl两个结构体继承自intrusive_ptr_target类，是PyTorch自行实现的类似std::shared_ptr的智能指针，主要负责引用计数等功能。
+
+此外，在issue([https://github.com/pytorch/pytorch/issues/14797](https://github.com/pytorch/pytorch/issues/14797))和StorageImpl.h的代码注释中，pytorch团队提到因为接口过于老旧等原因，希望废弃Storage类，但因为工程量较大，一直未能实现（该issue为2018年提出，但截至2023年仍未实现）。
 
 例如当用户在python代码中调用`torch.Tensor()`创建张量时，通过逐层接口调用，底层的某个Allocator通过`allocate()`方法分配了一块内存（或显存）空间，由StorageImpl类进行调度，实际指针在DataPtr（UniqueVoidPtr）类中保存。
 
 ### 本项目中的实现
 
-本项目中，将同样采取底层数据与上层应用接口分离的方案，Tensor数据结构将分为2层，分别为Tensor和TensorStorage。
+本项目中，将同样采取底层数据与上层应用接口分离的方案。张量库的命名空间（namespace）为t_tensor，表示tiny tensor，在定位上基本对应PyTorch中的c10和at命名空间。
+
+#### 侵入式智能指针intrusive_ptr和intrusive_ptr_target
+
+这部分数据结构模仿了PyTorch中的机制。
+
+> **番外篇：关于侵入式智能指针、强引用、弱引用**
+>
+> 智能指针是带引用计数的指针，用来一定程度上缓解C++中令人头秃的内存泄漏问题。对强引用（如std::shared_ptr\<T\>），当一个对象被分配内存、创建时，其引用计数为1；每增加一次引用，计数就+1，反之-1，当对象引用计数为0时释放其管理的内存资源（注意，这里未必就是析构对象自身）。
+>
+> 但是，如果出现循环引用，比如A类中含有一个B\*，B类中含有一个A\*，那么这两个对象的强引用计数将永远大于等于1，它们的内存资源不会被自动释放，可能造成内存泄漏。因此引入弱引用计数（如std::weak_ptr\<T\>），弱引用计数独立于强引用计数，弱引用指针依赖于强引用指针。
+>
+> 在上述AB类循环引用环境中，让A对象中指向B的智能指针为弱引用A.weak\_ptr\_B\_，此外在主函数中还有一个指向B的强引用指针shared\_ptr\_B（如果没有这个强引用，A.weak\_ptr\_B\_无法独立存在），B对象中指向A的指针为强引用B.shared\_ptr\_A\_。这时，A和B的强引用计数均为1，弱引用计数分别为0和1。当程序运行结束时，shared\_ptr\_B引用被解除，B的强引用计数归0，B管理的内存资源被释放（但此时B的弱引用计数还为1，A.weak\_ptr\_B\_处于一个不可访问、但不是野指针问题的状态），继而A的强引用计数归0；此时A和B的强、弱引用计数均为0，所管理的内存资源，和对象本身都被析构。
+>
+> 简单粗暴地讲，弱指针更像是一个不允许delete的普通指针，它对它指向的对象没有所有权。
+>
+> 侵入式智能指针的“侵入”体现在，它把引用计数放在了指针所指对象object的内部，相比普通的智能指针，可以减少内存分配操作的次数，从而略微提高性能，参考资料[^1]给出了测试结果。伴随性能优化而来的缺点是，指针所指对象必须继承自intrusive_ptr_target。
+
+
+
+
+
+## 参考资料
+
+[^1]: https://zhuanlan.zhihu.com/p/460983966
