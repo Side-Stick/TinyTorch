@@ -51,9 +51,23 @@ PyTorch 2.0.1中，Tensor相关主要class/struct结构如上图所示。Tensor�
 >
 > 侵入式智能指针的“侵入”体现在，它把引用计数放在了指针所指对象object的内部，相比普通的智能指针，可以减少内存分配操作的次数，从而略微提高性能，参考资料[^1]给出了测试结果。伴随性能优化而来的缺点是，指针所指对象必须继承自intrusive_ptr_target。
 
-intrusive_ptr_target类中最核心的成员属性ref\_count\_和weak\_count\_两个引用计数，数据类型定为std::atomic\<std\:\:size_t\>，atomic用于处理多线程。在对atomic对象进行加减法时，我们使用了C++默认的std::memory_order_seq_cst内存顺序，而非PyTorch中的std::memory_order_relaxed（weak\_count\_减法）或std::memory_order_acq_rel（其余3种情况）。一般而言，如果不知道使用哪种内存顺序，那么使用seq_cst就不会出错；这是最安全的一种顺序，但可能带来性能损失（不过在X86平台上，性能损失可忽略）。
+##### 指针所指对象的基类intrusive_ptr_target
 
-intrusive_ptr_target类在被构造时，两个引用计数都会归零，包括默认构造、移动构造、拷贝构造的情况，因为新对象的引用计数是独立于旧对象的；在析构时，需要检查两个引用计数是否未归零（我们在析构函数中抛出了exception，这是一种不太优雅的写法）。为了节省宝贵的内存or显存资源，还提供了release_storage函数，保留target对象本身，但释放其管理的内存资源（通常用于ref\_count\_为0但weak\_count\_不为0的情况，如果weak\_count\_也为0，那么直接析构对象就可以了）。
+intrusive_ptr_target类中最核心的成员属性ref\_count\_和weak\_count\_两个引用计数，数据类型定为std::atomic\<std\:\:size_t\>，atomic用于处理多线程。两个成员定义代码在[这里](https://github.com/Side-Stick/TinyTorch/blob/44bac3528dc2cdc7c9849a5eb00145e21b25f987/CppSrc/CppLibraries/Tensor/intrusive_ptr.hpp#L11)。
+
+在对atomic对象进行加减法时，我们使用了C++默认的std::memory_order_seq_cst内存顺序，而非PyTorch中的std::memory_order_relaxed（weak\_count\_减法，因为只有测试采用，所以无需保证安全性）或std::memory_order_acq_rel（其余3种情况，可保证use_count()和unique()的安全）。一般而言，如果不知道使用哪种内存顺序，那么使用seq_cst就不会出错；这是最安全的一种顺序，但可能带来性能损失（不过在X86平台上，性能损失可忽略）。[代码](https://github.com/Side-Stick/TinyTorch/blob/44bac3528dc2cdc7c9849a5eb00145e21b25f987/CppSrc/CppLibraries/Tensor/intrusive_ptr.hpp#L114C26-L114C26)形如：
+
+```c++
+std::size_t ref_increase_atomic() {
+    return ref_count_.fetch_add(1) + 1;
+}
+```
+
+intrusive_ptr_target类在被构造时，两个引用计数都会归零，包括[默认构造](https://github.com/Side-Stick/TinyTorch/blob/44bac3528dc2cdc7c9849a5eb00145e21b25f987/CppSrc/CppLibraries/Tensor/intrusive_ptr.hpp#L20C11-L20C11)、[移动构造](https://github.com/Side-Stick/TinyTorch/blob/44bac3528dc2cdc7c9849a5eb00145e21b25f987/CppSrc/CppLibraries/Tensor/intrusive_ptr.hpp#L25C16-L25C16)、[拷贝构造](https://github.com/Side-Stick/TinyTorch/blob/44bac3528dc2cdc7c9849a5eb00145e21b25f987/CppSrc/CppLibraries/Tensor/intrusive_ptr.hpp#L44)的情况，因为新对象的引用计数是独立于旧对象的；在[析构函数](https://github.com/Side-Stick/TinyTorch/blob/44bac3528dc2cdc7c9849a5eb00145e21b25f987/CppSrc/CppLibraries/Tensor/intrusive_ptr.hpp#L55C19-L55C19)中，需要检查两个引用计数是否未归零（我们在析构函数中抛出了exception，这是一种不太优雅的写法）。为了节省宝贵的内存or显存资源，还提供了[release_storage函数](https://github.com/Side-Stick/TinyTorch/blob/44bac3528dc2cdc7c9849a5eb00145e21b25f987/CppSrc/CppLibraries/Tensor/intrusive_ptr.hpp#L156C38-L156C38)，保留target对象本身，但释放其管理的内存资源（通常用于ref\_count\_为0但weak\_count\_不为0的情况，如果weak\_count\_也为0，那么直接析构对象就可以了）。
+
+##### 侵入式指针类intrusive_ptr
+
+
 
 ## 参考资料
 
