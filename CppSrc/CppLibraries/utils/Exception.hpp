@@ -14,5 +14,17 @@ class Exception : public std::exception {
     void add_track(std::string trace);
 };
 
+class TensorWarning : public Exception {
+  public:
+    enum TensorWarningCode {
+        REF_COUNT_WARN,
+    };
+
+    TensorWarning(TensorWarningCode warning_type_code, std::string msg,
+                  std::string traceback_source);
+
+  private:
+    TensorWarningCode type_code_;
+};
 
 #endif //TINYTORCHCPPSRC_EXCEPTION_HPP

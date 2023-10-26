@@ -67,7 +67,7 @@ intrusive_ptr_target类在被构造时，两个引用计数都会归零，包括
 
 ##### 侵入式指针类intrusive_ptr
 
-
+构造函数使用explicit关键词来保证形参类型。
 
 ## 参考资料
 
